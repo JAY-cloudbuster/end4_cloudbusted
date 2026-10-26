@@ -87,6 +87,11 @@ Singleton {
                 property bool enable: false
             }
 
+            property JsonObject focus: JsonObject {
+                property bool active: false
+                property bool previousSilent: false // Do Not Disturb state to restore afterwards
+            }
+
             property JsonObject ducky: JsonObject {
                 property int petCount: 0
             }

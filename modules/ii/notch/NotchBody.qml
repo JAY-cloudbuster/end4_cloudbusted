@@ -88,6 +88,7 @@ Item {
     // Highest priority first
     readonly property string activity: GlobalStates.osdVolumeOpen ? "osd"
         : batteryAlert !== "" ? "battery"
+        : FocusMode.active ? "focus"
         : runningTimer !== "" ? "timer"
         : hasMedia ? "media"
         : "idle"
@@ -95,6 +96,7 @@ Item {
     readonly property real sideWidth: ({
         "osd": 92,
         "battery": 60,
+        "focus": 70,
         "timer": 70,
         "media": 46,
         "idle": 0,
@@ -335,6 +337,7 @@ Item {
                 sourceComponent: ({
                     "osd": osdLeft,
                     "battery": batteryLeft,
+                    "focus": focusLeft,
                     "timer": timerLeft,
                     "media": mediaLeft,
                 })[root.activity] ?? null
@@ -349,6 +352,7 @@ Item {
                 sourceComponent: ({
                     "osd": osdRight,
                     "battery": batteryRight,
+                    "focus": focusRight,
                     "timer": timerRight,
                     "media": mediaRight,
                 })[root.activity] ?? null
@@ -413,6 +417,13 @@ Item {
                         font.features: { "tnum": 1 }
                         color: root.batteryColor()
                     }
+                }
+
+                NotchIconButton {
+                    icon: "do_not_disturb_on"
+                    iconSize: 18
+                    toggled: FocusMode.active
+                    onClicked: FocusMode.toggle()
                 }
 
                 NotchIconButton {
@@ -506,6 +517,26 @@ Item {
             font.weight: Font.DemiBold
             font.features: { "tnum": 1 }
             color: root.batteryColor()
+        }
+    }
+
+    Component {
+        id: focusLeft
+        MaterialSymbol {
+            text: TimerService.pomodoroBreak ? "coffee" : "do_not_disturb_on"
+            iconSize: 18
+            fill: 1
+            color: NotchPalette.accent
+        }
+    }
+    Component {
+        id: focusRight
+        StyledText {
+            text: TimerService.formatSeconds(TimerService.pomodoroSecondsLeft)
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            font.weight: Font.DemiBold
+            font.features: { "tnum": 1 }
+            color: NotchPalette.accent
         }
     }
 

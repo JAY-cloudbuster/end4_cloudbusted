@@ -31,3 +31,7 @@ for _, pad in ipairs(scratchpads) do
     hl.workspace_rule({ workspace = "special:" .. pad.name, on_created_empty = pad.cmd, gaps_out = 60 })
     hl.bind(pad.key, hl.dsp.workspace.toggle_special(pad.name), { description = pad.description })
 end
+
+--##! Focus mode
+-- Do Not Disturb + pomodoro focus round; press again to end
+hl.bind("SUPER + Z", hl.dsp.global("quickshell:focusModeToggle"), { description = "Shell: Toggle focus mode" })
