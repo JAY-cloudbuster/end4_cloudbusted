@@ -29,7 +29,8 @@ Item {
     }
 
     readonly property var effectiveLeftLayout:   filterLayout(Config.options.bar.layouts.leftLayout)
-    readonly property var effectiveMiddleLayout: filterLayout(Config.options.bar.layouts.middleLayout)
+    // The notch takes over the center of the bar
+    readonly property var effectiveMiddleLayout: GlobalStates.notchActive ? [] : filterLayout(Config.options.bar.layouts.middleLayout)
     readonly property var effectiveRightLayout:  filterLayout(Config.options.bar.layouts.rightLayout)
 
     function getWidgetUrl(name) {

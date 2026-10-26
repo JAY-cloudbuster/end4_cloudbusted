@@ -22,6 +22,10 @@ Singleton {
         root.items = arr
     }
 
+    function removeItem(path) {
+        root.items = root.items.filter(p => p !== path)
+    }
+
     function show(urls, x, y) {
         root.addItems(urls)
         GlobalStates.dropShelfX = x

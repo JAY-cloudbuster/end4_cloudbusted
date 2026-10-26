@@ -540,6 +540,11 @@ Singleton {
                     property string leftWidget: "none"
                     property string rightWidget: "none"
                 }
+                property JsonObject notch: JsonObject {
+                    property bool enable: true // Mac-style notch at the top center, replaces the middle bar section
+                    property int hoverOpenDelay: 120 // milliseconds
+                    property int hoverCloseDelay: 300 // milliseconds
+                }
                 property JsonObject divider: JsonObject {
                     property string style: "rect" // rect - dot - space
                     property int spacing: 20

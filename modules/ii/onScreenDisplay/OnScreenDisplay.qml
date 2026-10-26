@@ -127,7 +127,7 @@ Scope {
 
             implicitWidth: columnLayout.implicitWidth
             implicitHeight: columnLayout.implicitHeight
-            visible: osdLoader.active && !GlobalStates.dynamicIslandEnabled
+            visible: osdLoader.active && !GlobalStates.dynamicIslandEnabled && !GlobalStates.notchActive
 
             ColumnLayout {
                 id: columnLayout

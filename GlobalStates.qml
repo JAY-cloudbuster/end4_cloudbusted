@@ -60,6 +60,11 @@ Singleton {
         || Config.options.bar.layouts.middleLayout.includes("dynamicIsland")
         || Config.options.bar.layouts.rightLayout.includes("dynamicIsland")
 
+    // The notch only makes sense hugging the top edge
+    readonly property bool notchActive: Config.options.bar.notch.enable
+        && !Config.options.bar.vertical
+        && !Config.options.bar.bottom
+
     signal centeredWallpaperThumpRequested()
 
     // Shared by desktop (Background) and lock screen (LockSurface) scroll-to-cycle
