@@ -544,6 +544,10 @@ Singleton {
                     property bool enable: true // Mac-style notch at the top center, replaces the middle bar section
                     property int hoverOpenDelay: 120 // milliseconds
                     property int hoverCloseDelay: 300 // milliseconds
+                    // Frosted glass like the other panels. Only applies when appearance.transparency is on.
+                    property bool glass: true
+                    // Hyprland skips blur below 0.79 alpha (ignore_alpha in rules.lua), so this is clamped to >= 0.8
+                    property real glassOpacity: 0.8
                 }
                 property JsonObject divider: JsonObject {
                     property string style: "rect" // rect - dot - space

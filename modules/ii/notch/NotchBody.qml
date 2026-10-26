@@ -195,8 +195,10 @@ Item {
         corner: RoundCorner.CornerEnum.TopLeft
     }
 
+    // The shadow fills under the body too, so it would make glass look solid
     StyledRectangularShadow {
         target: body
+        visible: !NotchPalette.glass
         opacity: root.expanded ? 1 : 0
         Behavior on opacity {
             NumberAnimation { duration: 250 }
