@@ -17,7 +17,7 @@ Singleton {
     property string query: ""
 
     function ensurePrefix(prefix) {
-        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch,].some(i => root.query.startsWith(i))) {
+        if ([Config.options.search.prefix.action, Config.options.search.prefix.app, Config.options.search.prefix.clipboard, Config.options.search.prefix.emojis, Config.options.search.prefix.symbols, Config.options.search.prefix.math, Config.options.search.prefix.shellCommand, Config.options.search.prefix.webSearch, Config.options.search.prefix.window,].some(i => root.query.startsWith(i))) {
             root.query = prefix + root.query.slice(1);
         } else {
             root.query = prefix + root.query;
@@ -271,6 +271,53 @@ Singleton {
         }
     }
 
+    // Open windows matching every word of the search, most recently focused first
+    function windowResults(searchString, limit = -1) {
+        const terms = searchString.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+        const matches = HyprlandData.windowList
+            .filter(win => win.mapped && !win.hidden)
+            .filter(win => {
+                const haystack = `${win.title} ${win.class} ${win.initialTitle}`.toLowerCase();
+                return terms.every(term => haystack.includes(term));
+            })
+            .sort((a, b) => a.focusHistoryID - b.focusHistoryID);
+        return (limit >= 0 ? matches.slice(0, limit) : matches).map(win => {
+            const workspaceName = win.workspace?.name ?? "";
+            const workspaceLabel = workspaceName.startsWith("special:") ? Translation.tr("Scratchpad")
+                : workspaceName.length <= 3 ? Translation.tr("Workspace %1").arg(workspaceName)
+                : "";
+            return resultComp.createObject(null, {
+                type: Translation.tr("Window"),
+                name: win.title || win.class,
+                comment: [win.class, workspaceLabel].filter(s => s.length > 0).join("  •  "),
+                iconName: AppSearch.guessIcon(win.class),
+                iconType: LauncherSearchResult.IconType.System,
+                verb: Translation.tr("Switch"),
+                execute: () => {
+                    WM.focusWindow(win.address);
+                },
+                actions: [resultComp.createObject(null, {
+                        name: Translation.tr("Bring here"),
+                        iconName: "move_down",
+                        iconType: LauncherSearchResult.IconType.Material,
+                        execute: () => {
+                            const target = HyprlandData.activeWorkspace?.id;
+                            if (target === undefined) return;
+                            Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${target}, window = "address:${win.address}" })`);
+                            WM.focusWindow(win.address);
+                        }
+                    }), resultComp.createObject(null, {
+                        name: Translation.tr("Close"),
+                        iconName: "close",
+                        iconType: LauncherSearchResult.IconType.Material,
+                        execute: () => {
+                            WM.closeWindow(win.address);
+                        }
+                    })]
+            });
+        });
+    }
+
     property list<var> results: {
         // Search results are handled here
         ////////////////// Skip? //////////////////
@@ -278,7 +325,10 @@ Singleton {
             return [];
 
         ///////////// Special cases ///////////////
-        if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
+        if (root.query.startsWith(Config.options.search.prefix.window)) {
+            // Open windows
+            return root.windowResults(StringUtils.cleanPrefix(root.query, Config.options.search.prefix.window));
+        } else if (root.query.startsWith(Config.options.search.prefix.clipboard)) {
             // Clipboard
             const searchString = StringUtils.cleanPrefix(root.query, Config.options.search.prefix.clipboard);
             return Cliphist.fuzzyQuery(searchString).map((entry, index, array) => {
@@ -522,6 +572,10 @@ Singleton {
             result.push(webSearchResultObject);
         }
 
+        /////////// Open windows /////////////
+        // Before apps, so typing an app's name switches to it if it's already open
+        if (root.query.trim().length >= 2)
+            result = result.concat(root.windowResults(root.query, 3));
         //////////////// Apps //////////////////
         result = result.concat(appResultObjects);
         ////////////// Settings ////////////////

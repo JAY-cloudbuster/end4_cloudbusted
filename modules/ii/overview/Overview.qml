@@ -153,6 +153,16 @@ Scope {
         GlobalStates.overviewOpen = true;
     }
 
+    function toggleWindows() {
+        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
+            GlobalStates.overviewOpen = false;
+            return;
+        }
+        overviewScope.dontAutoCancelSearch = true;
+        panelWindow.setSearchingText(Config.options.search.prefix.window);
+        GlobalStates.overviewOpen = true;
+    }
+
     function toggleEmojis() {
         if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
             GlobalStates.overviewOpen = false;
@@ -193,6 +203,14 @@ Scope {
         }
         function clipboardToggle() {
             overviewScope.toggleClipboard();
+        }
+        function windowsToggle() {
+            overviewScope.toggleWindows();
+        }
+        function searchFor(text: string) {
+            overviewScope.dontAutoCancelSearch = true;
+            panelWindow.setSearchingText(text);
+            GlobalStates.overviewOpen = true;
         }
     }
 
@@ -244,6 +262,15 @@ Scope {
             GlobalStates.superReleaseMightTrigger = false;
         }
     }
+    CompositorGlobalShortcut {
+        name: "overviewWindowsToggle"
+        description: "Toggle open-windows query on overview widget"
+
+        onPressed: {
+            overviewScope.toggleWindows();
+        }
+    }
+
     CompositorGlobalShortcut {
         name: "overviewClipboardToggle"
         description: "Toggle clipboard query on overview widget"

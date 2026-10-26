@@ -8,3 +8,7 @@ hl.bind("ALT + SHIFT + Tab", hl.dsp.global("quickshell:windowSwitcherPrev"))
 -- Releasing Alt confirms. transparent so apps still see Alt normally.
 hl.bind("ALT_L", hl.dsp.global("quickshell:windowSwitcherRelease"), { ignore_mods = true, transparent = true, release = true })
 hl.bind("ALT_R", hl.dsp.global("quickshell:windowSwitcherRelease"), { ignore_mods = true, transparent = true, release = true })
+
+--##! Window search
+-- Launcher in open-windows mode (or type "," in the launcher)
+hl.bind("SUPER + Comma", hl.dsp.global("quickshell:overviewWindowsToggle"), { description = "Window: Search open windows" })

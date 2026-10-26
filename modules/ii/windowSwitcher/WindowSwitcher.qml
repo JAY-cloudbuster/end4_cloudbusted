@@ -27,6 +27,14 @@ Scope {
     readonly property real previewHeight: 150
     readonly property real cardPadding: 8
 
+    function cardWidth(win) {
+        const aspect = Math.max(0.6, Math.min(2.2, (win.size?.[0] ?? 16) / Math.max(1, win.size?.[1] ?? 9)))
+        return root.previewHeight * aspect + root.cardPadding * 2
+    }
+    // Computed here instead of ListView.contentWidth to avoid a binding loop
+    readonly property real totalCardsWidth: windows.reduce((sum, win) => sum + cardWidth(win), 0)
+        + Math.max(0, windows.length - 1) * 6
+
     function snapshotWindows() {
         return HyprlandData.windowList
             .filter(w => w.mapped && !w.hidden)
@@ -137,7 +145,7 @@ Scope {
                 ListView {
                     id: cardList
                     anchors.centerIn: parent
-                    width: Math.min(contentWidth, switcherWindow.width - 80 - root.cardPadding * 2 - 16)
+                    width: Math.min(root.totalCardsWidth, switcherWindow.width - 80 - root.cardPadding * 2 - 16)
                     height: root.previewHeight + root.cardPadding * 2 + 30
                     orientation: ListView.Horizontal
                     spacing: 6
@@ -155,10 +163,7 @@ Scope {
                         readonly property bool selected: index === root.selectedIndex
                         readonly property var toplevel: ToplevelManager.toplevels.values.find(
                             t => `0x${t.HyprlandToplevel?.address}` === modelData.address) ?? null
-                        readonly property real aspect: Math.max(0.6, Math.min(2.2,
-                            (modelData.size?.[0] ?? 16) / Math.max(1, modelData.size?.[1] ?? 9)))
-
-                        width: root.previewHeight * aspect + root.cardPadding * 2
+                        width: root.cardWidth(modelData)
                         height: ListView.view.height
                         radius: Appearance.rounding.large
                         color: selected ? Appearance.colors.colSecondaryContainer
