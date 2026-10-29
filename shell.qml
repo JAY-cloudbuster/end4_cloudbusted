@@ -50,6 +50,7 @@ ShellRoot {
         Updates.load()
         LyricsService.restartLyrics()
         FocusMode.load()
+        WindowMinimize.load()
     }
     
     PanelFamilyLoader {

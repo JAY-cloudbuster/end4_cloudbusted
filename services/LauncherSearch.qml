@@ -283,7 +283,8 @@ Singleton {
             .sort((a, b) => a.focusHistoryID - b.focusHistoryID);
         return (limit >= 0 ? matches.slice(0, limit) : matches).map(win => {
             const workspaceName = win.workspace?.name ?? "";
-            const workspaceLabel = workspaceName.startsWith("special:") ? Translation.tr("Scratchpad")
+            const workspaceLabel = workspaceName === WindowMinimize.workspaceName ? Translation.tr("Minimized")
+                : workspaceName.startsWith("special:") ? Translation.tr("Scratchpad")
                 : workspaceName.length <= 3 ? Translation.tr("Workspace %1").arg(workspaceName)
                 : "";
             return resultComp.createObject(null, {
