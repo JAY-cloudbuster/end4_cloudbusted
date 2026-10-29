@@ -14,10 +14,8 @@ import qs.modules.common.widgets
 
 /**
  * Alt+Tab window switcher with live previews.
- * Hold Alt, tap Tab (Shift+Tab backwards) to cycle, release Alt to switch, Alt+Escape to cancel.
- * All keys come from Hyprland binds (custom/productivity.lua). The panel deliberately takes no
- * keyboard focus: while a layer holds exclusive focus Hyprland skips binds, so the Alt release
- * would never arrive and the switcher would stay open.
+ * Hold Alt, tap Tab (Shift+Tab backwards) to cycle, release Alt to switch.
+ * The Alt release comes from a Hyprland release bind (windowSwitcherRelease).
  */
 Scope {
     id: root
@@ -25,19 +23,6 @@ Scope {
     property int selectedIndex: 0
     // Snapshot taken on open, so the order doesn't shuffle while cycling
     property var windows: []
-    // Where the pointer was when the panel appeared. The compositor sends enter + motion
-    // events when a surface opens under a resting pointer, so hover only selects once the
-    // pointer has really moved from here; otherwise it would steal the selection.
-    property point pointerOrigin: Qt.point(-1, -1)
-    readonly property real hoverMoveThreshold: 6
-
-    function pointerMoved(scenePos) {
-        if (root.pointerOrigin.x < 0) {
-            root.pointerOrigin = scenePos
-            return false
-        }
-        return Math.hypot(scenePos.x - root.pointerOrigin.x, scenePos.y - root.pointerOrigin.y) > root.hoverMoveThreshold
-    }
 
     readonly property real previewHeight: 150
     readonly property real cardPadding: 8
@@ -64,7 +49,6 @@ Scope {
             // First Tab goes to the previous window, Shift+Tab to the oldest
             root.selectedIndex = root.windows.length === 1 ? 0
                 : delta > 0 ? 1 : root.windows.length - 1
-            root.pointerOrigin = Qt.point(-1, -1)
             root.open = true
             return
         }
@@ -77,7 +61,7 @@ Scope {
         if (!root.open) return
         const win = root.windows[root.selectedIndex]
         root.open = false
-        // Focus once the switcher has closed
+        // Focus after the switcher gives keyboard focus back
         if (win && HyprlandData.windowByAddress[win.address])
             Qt.callLater(() => WM.focusWindow(win.address))
     }
@@ -108,12 +92,35 @@ Scope {
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:windowSwitcher"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
             // Click outside to cancel
             MouseArea {
                 anchors.fill: parent
                 onClicked: root.cancel()
+            }
+
+            Item {
+                id: keyHandler
+                anchors.fill: parent
+                focus: true
+                Keys.onPressed: (event) => {
+                    switch (event.key) {
+                    case Qt.Key_Escape: root.cancel(); break
+                    case Qt.Key_Return:
+                    case Qt.Key_Enter: root.confirm(); break
+                    case Qt.Key_Right:
+                    case Qt.Key_Tab: root.step(1); break
+                    case Qt.Key_Left:
+                    case Qt.Key_Backtab: root.step(-1); break
+                    default: return
+                    }
+                    event.accepted = true
+                }
+                // Backup for the Hyprland release bind
+                Keys.onReleased: (event) => {
+                    if (event.key === Qt.Key_Alt) root.confirm()
+                }
             }
 
             StyledRectangularShadow {
@@ -171,10 +178,7 @@ Scope {
                             id: cardMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onPositionChanged: (mouse) => {
-                                if (root.pointerMoved(mapToItem(null, mouse.x, mouse.y)))
-                                    root.selectedIndex = card.index
-                            }
+                            onEntered: root.selectedIndex = card.index
                             onClicked: {
                                 root.selectedIndex = card.index
                                 root.confirm()
@@ -274,12 +278,6 @@ Scope {
         name: "windowSwitcherPrev"
         description: "Window switcher: previous window"
         onPressed: root.step(-1)
-    }
-
-    CompositorGlobalShortcut {
-        name: "windowSwitcherCancel"
-        description: "Window switcher: cancel"
-        onPressed: root.cancel()
     }
 
     CompositorGlobalShortcut {
