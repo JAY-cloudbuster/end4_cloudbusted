@@ -46,19 +46,27 @@ local restore_size = { width = 0.6, height = 0.65 } -- fraction of the monitor
 -- Hyprland only reports the resulting state, not the app's request, so remember each
 -- window's last state and only react to maximized -> normal
 local fullscreen_state = {}
+-- Windows floated by a restore click; their maximize click puts them back into tiling
+local floated_by_restore = {}
 for _, win in ipairs(hl.get_windows()) do fullscreen_state[win.address] = win.fullscreen end
 hl.on("window.open", function(win) fullscreen_state[win.address] = win.fullscreen end)
-hl.on("window.destroy", function(win) fullscreen_state[win.address] = nil end)
+-- window.close, not window.destroy: by destroy the address is already gone (nil)
+hl.on("window.close", function(win)
+    fullscreen_state[win.address] = nil
+    floated_by_restore[win.address] = nil
+end)
 
 -- Un-maximizes caused by something else are ignored for a moment: keybind toggles keep
 -- their old behaviour, and a window opening or moving onto a workspace un-maximizes the
--- window already there as a side effect
+-- window already there as a side effect. open_early fires before that side effect.
 local ignore_changes = false
 local function ignore_briefly()
     ignore_changes = true
     hl.timer(function() ignore_changes = false end, { timeout = 300, type = "oneshot" })
 end
+hl.on("window.open_early", ignore_briefly)
 hl.on("window.open", ignore_briefly)
+hl.on("window.close", ignore_briefly)
 hl.on("window.move_to_workspace", ignore_briefly)
 
 local function keybind_fullscreen(dispatcher)
@@ -80,18 +88,30 @@ hl.bind("SUPER + ALT + F", keybind_fullscreen(hl.dsp.window.fullscreen_state({ i
 hl.on("window.fullscreen", function(win)
     local before = fullscreen_state[win.address]
     fullscreen_state[win.address] = win.fullscreen
-    if ignore_changes or before ~= 1 or win.fullscreen ~= 0 then return end
     -- Only the focused window: clicking its button focuses it, while windows un-maximized as a
     -- side effect (another window maximizing or opening on the same workspace) aren't focused
-    if win.floating or not win.active then return end
-
-    local width, height = 1100, 700
-    if win.monitor then
-        width = math.floor(win.monitor.width * restore_size.width)
-        height = math.floor(win.monitor.height * restore_size.height)
-    end
+    if ignore_changes or not win.active then return end
     local target = "address:" .. win.address
-    hl.dispatch(hl.dsp.window.float({ action = "enable", window = target }))
-    hl.dispatch(hl.dsp.window.resize({ x = width, y = height, exact = true, window = target }))
-    hl.dispatch(hl.dsp.window.center({ window = target }))
+
+    -- Maximize on a window we floated: back into the tiling layout, maximized
+    if before == 0 and win.fullscreen == 1 and win.floating and floated_by_restore[win.address] then
+        floated_by_restore[win.address] = nil
+        ignore_briefly()
+        hl.dispatch(hl.dsp.window.float({ action = "disable", window = target }))
+        hl.dispatch(hl.dsp.window.fullscreen({ mode = "maximized", action = "set", window = target }))
+        return
+    end
+
+    -- Restore on a maximized tiled window: free-floating, centered
+    if before == 1 and win.fullscreen == 0 and not win.floating then
+        local width, height = 1100, 700
+        if win.monitor then
+            width = math.floor(win.monitor.width * restore_size.width)
+            height = math.floor(win.monitor.height * restore_size.height)
+        end
+        floated_by_restore[win.address] = true
+        hl.dispatch(hl.dsp.window.float({ action = "enable", window = target }))
+        hl.dispatch(hl.dsp.window.resize({ x = width, y = height, exact = true, window = target }))
+        hl.dispatch(hl.dsp.window.center({ window = target }))
+    end
 end)
