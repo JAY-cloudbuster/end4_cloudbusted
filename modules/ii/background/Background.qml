@@ -57,8 +57,17 @@ Variants {
             return Wallpapers.previewPath || Wallpapers.confirmedPath || Config.options.background.wallpaperPath;
         }
 
-        property bool wallpaperIsVideo: bgRoot.effectiveWallpaperPath.endsWith(".mp4") || bgRoot.effectiveWallpaperPath.endsWith(".webm") || bgRoot.effectiveWallpaperPath.endsWith(".mkv") || bgRoot.effectiveWallpaperPath.endsWith(".avi") || bgRoot.effectiveWallpaperPath.endsWith(".mov")
-        property string wallpaperPath: wallpaperIsVideo ? Config.options.background.thumbnailPath : bgRoot.effectiveWallpaperPath
+        property bool wallpaperIsVideo: Wallpapers.isVideo(bgRoot.effectiveWallpaperPath)
+        // A video shows its first frame until it's the one mpvpaper is playing (the home
+        // wallpaper, or the lock screen's own video while locked); then the frame is hidden to
+        // reveal the video underneath. Previewing another video shows that video's frame.
+        property string wallpaperPath: wallpaperIsVideo ? Wallpapers.videoFramePath(bgRoot.effectiveWallpaperPath) : bgRoot.effectiveWallpaperPath
+        readonly property bool showingPlayingVideo: wallpaperIsVideo
+            && bgRoot.effectiveWallpaperPath === Wallpapers.playingVideoPath
+        onShowingPlayingVideoChanged: {
+            if (!bgRoot.showingPlayingVideo) bgRoot.videoRevealed = false
+            else if (bgRoot.transitionProgress >= 1.0) bgRoot.videoRevealed = true
+        }
         property bool wallpaperSafetyTriggered: {
             const enabled = Config.options.workSafety.enable.wallpaper;
             const sensitiveWallpaper = (CF.StringUtils.stringListContainsSubstring(wallpaperPath.toLowerCase(), Config.options.workSafety.triggerCondition.fileKeywords));
@@ -119,7 +128,7 @@ Variants {
                     ? bgRoot.shaderList[Math.floor(Math.random() * bgRoot.shaderList.length)]
                     : bgRoot.wallpaperAnimation
             }
-            bgRoot.videoRevealed = bgRoot.wallpaperIsVideo
+            bgRoot.videoRevealed = bgRoot.showingPlayingVideo
         }
 
         onWallpaperPathChanged: {
@@ -136,8 +145,7 @@ Variants {
                 wallpaper.source = wallpaperPath
                 previousWallpaper.source = wallpaperPath
                 bgRoot.currentWallpaperSource = wallpaperPath
-                if (!bgRoot.wallpaperIsVideo) return
-                bgRoot.videoRevealed = true
+                bgRoot.videoRevealed = bgRoot.showingPlayingVideo
                 return
             }
 
@@ -169,7 +177,7 @@ Variants {
                 previousWallpaper.source = bgRoot.currentWallpaperSource
                 bgRoot.previousWallpaperSource = ""
                 bgRoot.transitionProgress = 1.0
-                bgRoot.videoRevealed = bgRoot.wallpaperIsVideo
+                bgRoot.videoRevealed = bgRoot.showingPlayingVideo
             }
         }
 
@@ -198,7 +206,7 @@ Variants {
             target: GlobalStates
             function onScreenLockedChanged() {
                 if (!GlobalStates.screenLocked) {
-                    bgRoot.videoRevealed = bgRoot.wallpaperIsVideo
+                    bgRoot.videoRevealed = bgRoot.showingPlayingVideo
                 }
             }
         }

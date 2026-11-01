@@ -173,8 +173,8 @@ Item {
                                     anchors.fill: parent
                                     fillMode: Image.PreserveAspectCrop
                                     source: Config.options.sidebar.bannerImage !== "" 
-                                        ? Config.options.sidebar.bannerImage 
-                                        : Config.options.background.wallpaperPath
+                                        ? Config.options.sidebar.bannerImage
+                                        : Wallpapers.wallpaperStillPath
                                     cache: false
                                     antialiasing: true
                                     sourceSize.width: wallpaperRect.width * 2

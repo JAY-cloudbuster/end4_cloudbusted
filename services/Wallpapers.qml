@@ -1,3 +1,4 @@
+import qs
 import qs.modules.common
 import qs.modules.common.models
 import qs.modules.common.functions
@@ -32,9 +33,95 @@ Singleton {
     property var orderMap: ({})
     property bool orderLoaded: false
     property string searchQuery: ""
-    readonly property list<string> extensions: [ // TODO: add videos
-        "jpg", "jpeg", "png", "webp", "avif", "bmp", "svg"
+    // Videos are live wallpapers: switchwall.sh plays them with mpvpaper
+    readonly property list<string> videoExtensions: ["mp4", "webm", "mkv", "mov", "avi"]
+    readonly property list<string> extensions: [
+        "jpg", "jpeg", "png", "webp", "avif", "bmp", "svg",
+        ...videoExtensions
     ]
+    // Where switchwall.sh saves a video's first frame (shown before the video plays, used for colors)
+    readonly property string videoFrameDirectory: FileUtils.trimFileProtocol(`${Directories.config}/hypr/custom/scripts/mpvpaper_thumbnails`)
+
+    function isVideo(path) {
+        const lower = (path ?? "").toString().toLowerCase();
+        return root.videoExtensions.some(ext => lower.endsWith(`.${ext}`));
+    }
+
+    // The applied wallpaper as a still image, for places that show it as a picture
+    // (lock screen, sidebar banner...). An Image can't load a video file.
+    readonly property string wallpaperStillPath: isVideo(Config.options.background.wallpaperPath)
+        ? Config.options.background.thumbnailPath
+        : Config.options.background.wallpaperPath
+
+    function videoFramePath(path) {
+        return `${root.videoFrameDirectory}/${FileUtils.trimFileProtocol(path.toString()).split("/").pop()}.jpg`;
+    }
+
+    // Extracts a video's first frame to videoFramePath() unless it's already there
+    function videoFrameCommand(path) {
+        return ["bash", "-c",
+            `[ -f "$2" ] || { mkdir -p "$(dirname "$2")" && ffmpeg -y -loglevel error -i "$1" -frames:v 1 "$2"; }`,
+            "_", FileUtils.trimFileProtocol(path.toString()), root.videoFramePath(path)];
+    }
+
+    // ── Live video on the lock screen ─────────────────────────────────────
+    // mpvpaper plays one video at a time. When the lock screen has its own video wallpaper,
+    // it's swapped in while locked and the home one is put back on unlock.
+    property string lockVideoScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/lock-video-wallpaper.sh`)
+    property string lockVideoPlaying: ""
+    // True while mpvpaper restarts on another video; the background keeps showing the
+    // video's first frame meanwhile instead of an empty screen
+    property bool videoSwitching: false
+    // The video mpvpaper is currently showing ("" for none)
+    readonly property string playingVideoPath: {
+        if (root.videoSwitching) return "";
+        if (root.lockVideoPlaying !== "") return root.lockVideoPlaying;
+        return root.isVideo(Config.options.background.wallpaperPath) ? Config.options.background.wallpaperPath : "";
+    }
+
+    function switchVideo(args) {
+        root.videoSwitching = true;
+        Quickshell.execDetached([root.lockVideoScriptPath, ...args]);
+        videoSwitchTimer.restart();
+    }
+
+    Timer {
+        id: videoSwitchTimer
+        interval: 800 // mpvpaper's first frame
+        onTriggered: root.videoSwitching = false
+    }
+
+    Connections {
+        target: GlobalStates
+        function onScreenLockedChanged() {
+            const lockWall = Config.options.background.lockWall;
+            if (GlobalStates.screenLocked) {
+                if (root.isVideo(lockWall) && lockWall !== Config.options.background.wallpaperPath) {
+                    root.lockVideoPlaying = lockWall;
+                    root.switchVideo(["start", lockWall]);
+                }
+            } else if (root.lockVideoPlaying !== "") {
+                root.lockVideoPlaying = "";
+                root.switchVideo(["stop"]);
+            }
+        }
+    }
+
+    // The lock screen shows the lock video's first frame until it plays, so have it ready
+    Process {
+        id: lockFrameProc
+        command: root.videoFrameCommand(Config.options.background.lockWall)
+    }
+    Connections {
+        target: Config.options.background
+        function onLockWallChanged() {
+            if (root.isVideo(Config.options.background.lockWall)) lockFrameProc.running = true;
+        }
+    }
+    Component.onCompleted: {
+        if (root.isVideo(Config.options.background.lockWall)) lockFrameProc.running = true;
+    }
+
     property list<string> wallpapers: [] // List of absolute file paths (without file://)
     readonly property bool thumbnailGenerationRunning: thumbgenProc.running
     property real thumbnailGenerationProgress: 0
@@ -49,11 +136,28 @@ Singleton {
 
     function startPreview(path) {
         if (!path || path.length === 0) return;
-        root.previewPath = path;
+        if (!root.isVideo(path)) {
+            videoFrameProc.pendingPath = "";
+            root.previewPath = path;
+            return;
+        }
+        // A video previews as its first frame; extract it first if switchwall.sh hasn't yet
+        videoFrameProc.pendingPath = path;
+        videoFrameProc.running = false;
+        videoFrameProc.command = root.videoFrameCommand(path);
+        videoFrameProc.running = true;
     }
 
     function stopPreview() {
+        videoFrameProc.pendingPath = "";
         root.previewPath = "";
+    }
+
+    Process {
+        id: videoFrameProc
+        property string pendingPath: ""
+        // Still the hovered file (the user may have moved on while extracting)
+        onExited: if (pendingPath !== "") root.previewPath = pendingPath
     }
 
     // Executions

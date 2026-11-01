@@ -12,7 +12,8 @@ Item {
 
     required property var fileModelData
     property bool isDirectory: fileModelData ? Boolean(fileModelData.fileIsDir) : false
-    property bool useThumbnail: fileModelData ? Images.isValidImageByName(fileModelData.fileName) : false
+    property bool isVideo: fileModelData ? Wallpapers.isVideo(fileModelData.fileName) : false
+    property bool useThumbnail: fileModelData ? (Images.isValidImageByName(fileModelData.fileName) || isVideo) : false
     property alias colBackground: background.color
     property alias colText: wallpaperItemName.color
     property alias radius: background.radius
@@ -67,7 +68,8 @@ Item {
                     sourceComponent: ThumbnailImage {
                         id: thumbnailImage
 
-                        generateThumbnail: false
+                        // The folder-wide generator only handles images; a video makes its own frame
+                        generateThumbnail: root.isVideo
                         sourcePath: (fileModelData && fileModelData.filePath) ? fileModelData.filePath : ""
                         cache: false
                         fillMode: Image.PreserveAspectCrop

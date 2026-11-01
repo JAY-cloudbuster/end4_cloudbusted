@@ -43,8 +43,12 @@ StyledImage {
         command: {
             const maxSize = Images.thumbnailSizes[root.thumbnailSizeName];
             const thumbPath = FileUtils.trimFileProtocol(root.thumbnailPath);
+            // Videos: one frame via ffmpeg (magick would decode every frame)
+            const makeThumbnail = /\.(mp4|webm|mkv|mov|avi)$/i.test(root.sourcePath)
+                ? `ffmpeg -y -loglevel error -i '${root.sourcePath}' -frames:v 1 -vf 'scale=${maxSize}:${maxSize}:force_original_aspect_ratio=decrease' '\${tmp}'`
+                : `magick '${root.sourcePath}' -resize ${maxSize}x${maxSize} '\${tmp}'`;
             return ["bash", "-c",
-                `[ -f '${thumbPath}' ] && exit 0 || { tmp='${thumbPath}.$$.tmp.png'; magick '${root.sourcePath}' -resize ${maxSize}x${maxSize} '\${tmp}' && mv '\${tmp}' '${thumbPath}' && exit 1; exit 2; }`
+                `[ -f '${thumbPath}' ] && exit 0 || { tmp='${thumbPath}.$$.tmp.png'; ${makeThumbnail} && mv '\${tmp}' '${thumbPath}' && exit 1; exit 2; }`
             ]
         }
         onExited: (exitCode, exitStatus) => {
