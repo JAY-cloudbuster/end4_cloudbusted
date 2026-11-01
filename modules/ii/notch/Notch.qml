@@ -33,8 +33,15 @@ Scope {
                 id: notchWindow
                 screen: notchLoader.modelData
 
-                property var monitorData: HyprlandData.monitors.find(m => m.name === notchWindow.screen?.name)
-                property bool monitorHasFullscreen: HyprlandData.workspaceById[monitorData?.activeWorkspace?.id]?.hasfullscreen ?? false
+                // Live Hyprland state, same check as the desktop background. Not HyprlandData:
+                // its monitor list isn't refreshed on workspace switches, so the notch could
+                // stay hidden on the wrong workspace until a reload. And only real fullscreen
+                // counts; Hyprland's `hasfullscreen` is also true for merely maximized windows.
+                readonly property HyprlandMonitor monitor: Hyprland.monitorFor(notchWindow.screen)
+                readonly property bool monitorHasFullscreen: Hyprland.workspaces.values.some(workspace =>
+                    workspace.monitor?.name === notchWindow.monitor?.name
+                    && workspace.active
+                    && workspace.toplevels.values.some(toplevel => toplevel.wayland?.fullscreen))
 
                 // Overlay so it sits above the bar; hidden for fullscreen apps instead
                 visible: !monitorHasFullscreen
